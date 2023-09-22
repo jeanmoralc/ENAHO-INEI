@@ -1,0 +1,1135 @@
+//Cálculo de indicadores de la Pobreza nacional a nivel de hogares y personas//
+//METODOLOGÍA PARA CONSTRUIR LA POBREZA MONETARIA.
+cd "D:\ENAHO\CORTE TRANSVERSAL\2004-2021"
+
+/*Se limpia y se usa la llave única; es decir, sirve para eliminar todos los caracteres.
+Limpia nombres y equiquetas "a�o" */
+clear all
+set more off
+cd "D:\ENAHO\CORTE TRANSVERSAL\2004-2021"
+*Traslate a unicode
+unicode analyze *
+unicode encoding set ISO-8859-1 //código latino
+unicode translate *
+
+***********************************************************************************************
+
+//Juntar data en diferentes periodos
+
+use sumaria-2004,clear 
+append using sumaria-2005
+append using sumaria-2006
+append using sumaria-2007
+append using sumaria-2008
+append using sumaria-2009
+append using sumaria-2010
+append using sumaria-2011
+append using sumaria-2012
+append using sumaria-2013 //RECORDAR: En el ENAHO cuando se descarga sumaria, el nombre del archivo aparece con mayúsculas (SUMARIA-2013.DTA); se cambia a minúscula para no generar algún error.  
+append using sumaria-2014
+append using sumaria-2015
+append using sumaria-2016
+append using sumaria-2017
+append using sumaria-2018
+append using sumaria-2019
+append using sumaria-2020
+append using sumaria-2021
+
+**********************************************************************
+/* Este procedimiento se usa una vez, ya que se vuelve a guardar en sumaria-2013 o en otro módulo que tenga este tipo de problemas.*/
+**********************************************************************
+**********************************************************************
+//OJO: Nos percatamos que no aparece el año 2013 "aÑo"
+//>> Nos damos cuenta que tanto nombre y etiqueta aparece "año o "a�o" y no ("aÑo") como aparece en las demas partidas, ejm: sumaria-2004. Entonces, se tiene que hacer manualmente y con el comando "edit" y se podrá cambiar el nombre y etiqueta, luego se guarda con "save sumaria-2013, replace"
+edit
+save sumaria-2013, replace
+
+**********************************************************************
+**********************************************************************
+// 
+//Una vez corregido el error, volvemos a correr "METODOLOGÍA PARA CONSTRUIR LA POBREZA MONETARIA" y juntamos toda la data
+cd "D:\CURSOS\ESP. EN MANEJO DE MICRODATOS INEI\M1 - Encuenta Nacional de Hogares - ENAHO - Metod. ACTUALIZADA - Condic. de vida y pobreza\CORTE TRANSVERSAL - S01-S02-S03-S04-S05-S06\S02-2004 - 2021"
+*Juntar data
+use sumaria-2004,clear 
+append using sumaria-2005
+append using sumaria-2006
+append using sumaria-2007
+append using sumaria-2008
+append using sumaria-2009
+append using sumaria-2010
+append using sumaria-2011
+append using sumaria-2012
+append using sumaria-2013
+append using sumaria-2014
+append using sumaria-2015
+append using sumaria-2016
+append using sumaria-2017
+append using sumaria-2018
+append using sumaria-2019
+append using sumaria-2020
+append using sumaria-2021
+
+br //observamos que sí aparece el año 2013
+
+*************
+tab pobreza
+codebook pobreza //identificamos los códigos que sale en (tab pobreza) donde: 1 == pobre extremo; 2 == pobre no extremo; 3 == no pobre.
+
+//>> Se construye la pobreza monetaria; donde 1 y 2 será pobre(1) y 3 no pobre(0); y se genera pobre "g(pobre)"
+recode pobreza (1 2=1 "pobre") (3=0 "no_pobre"), gen(pobre)
+tab pobre
+
+//Para general y saber el total de personas, se usa el factor expansión
+gen facpob= factor07*mieperho //Primero se va a generar el nombre "facpob". **mieperho(Total de miembros del hogar)
+
+//A nivel de inferencia (ficha técnica), solo se puede generar departamentos
+gen dpto= real(substr(ubigeo,1,2))
+lab var dpto "Departamentos"
+
+label define dpto1 1"Amazonas" 2"Ancash" 3"Apurimac" 4"Arequipa" 5"Ayacucho" 6"Cajamarca" 7 "Callao" 8"Cusco" 9"Huancavelica" 10"Huanuco" 11"Ica" /*
+*/12"Junin" 13"La Libertad" 14"Lambayeque" 15"Lima" 16"Loreto" 17"Madre de Dios" 18"Moquegua" 19"Pasco" 20"Piura" 21"Puno" 22"San Martin" /*
+*/23"Tacna" 24"Tumbes" 25"Ucayali" 
+
+lab val dpto dpto1 //agregamos su etiqueta
+tab dpto
+
+**************
+//Creamos zonas de estratos; es decir, hay hogares que le localizan en la parte urbana y rural
+tab estrato
+codebook estrato
+tab estrato, nolabel // observamos los valores (1,2,3,4,5,6,7,8)
+gen rural = 0 //aquellos urbanos
+replace rural = 1 if estrato == 6 | estrato == 7 | estrato == 8 //hogares que viven en zona rural, cuando la condición es (6,7 y 8) y el resto de número (1,2,3,4 y 5) son urbanos
+
+tab dominio // observamos aquellos que viven en la costa norte(1), costa centro(2), costa sur(3), sierra norte(4), sierra centro(5), sierra sur(6), selva(7) y lima metropolitana(8).
+tab dominio, nolabel
+
+gen zona = "Revisar"
+replace  zona = "Lima Metropolitana" if dominio == 8
+replace  zona = "Resto Urbano"       if dominio >= 1 & dominio<8 & rural == 0
+replace  zona = "Rural"              if rural == 1
+
+tab zona
+save "pobreza total", replace
+
+************
+use "pobreza total", replace
+*************
+tab pobreza
+codebook pobreza //identificamos los códigos que sale en (tab pobreza) donde: 1 == pobre extremo; 2 == pobre no extremo; 3 == no pobre.
+
+//>> Bajo esta premisa, se construye la pobreza monetaria; donde 1 y 2 será pobre(1) y 3 no pobre(0); y se genera pobre "g(pobre)"
+recode pobreza (1 2=1 "pobre") (3=0 "no_pobre"), gen(pobre)
+tab pobre
+
+****CREAMOS EL FACTOR POBLACIONAL****
+//Para general y saber el total de personas, se usa el factor expansión
+gen facpob= factor07*mieperho //Primero se va a generar el nombre "facpob". 	**mieperho(Total de miembros del hogar)
+
+//A nivel de inferencia (ficha técnica), solo se puede generar departamentos
+gen dpto= real(substr(ubigeo,1,2))
+lab var dpto "Departamentos"
+
+label define dpto1 1"Amazonas" 2"Ancash" 3"Apurimac" 4"Arequipa" 5"Ayacucho" 6"Cajamarca" 7 "Callao" 8"Cusco" 9"Huancavelica" 10"Huanuco" 11"Ica" /*
+*/12"Junin" 13"La Libertad" 14"Lambayeque" 15"Lima" 16"Loreto" 17"Madre de Dios" 18"Moquegua" 19"Pasco" 20"Piura" 21"Puno" 22"San Martin" /*
+*/23"Tacna" 24"Tumbes" 25"Ucayali" 
+
+lab val dpto dpto1 //agregamos su etiqueta
+tab dpto
+
+**************
+***CREAMOS URBANO O RURAL*****
+//Creamos zonas de estratos; es decir, hay hogares que le localizan en la parte urbana y rural
+tab estrato
+codebook estrato
+tab estrato, nolabel // observamos los valores (1,2,3,4,5,6,7,8)
+gen rural = 0 //aquellos urbanos
+replace rural = 1 if estrato == 6 | estrato == 7 | estrato == 8 //hogares que viven en zona rural, cuando la condición es (6,7 y 8) y el resto de número (1,2,3,4 y 5) son urbanos
+
+//ponemos etiqueda rural y urbano
+tab rural
+label define rural 1 "rural" 0 "urbano"
+lab val rural rural
+tab rural
+
+*******************
+** Creación Región Natural **
+tab dominio
+tab dominio, nolabel
+recode dominio (1/3 8 =1 "Costa")(4/6=2 "Sierra")(7=3 "Selva"), ///
+gen (grandes_dominios)
+tab grandes_dominios
+tab grandes_dominios, nolabel
+
+save "pobreza total", replace
+
+
+********METODOLOGÍA POBREZA MONETARIA ************
+**************************************************
+**I. POBREZA MONETARIA A NIVEL DE HOGARES ****
+**************************************************
+use "pobreza total", replace
+
+	***** Ámbito geográfico nacional *****
+**1.1.Pobreza monetaria hogar ******
+tab aÑo pobre [iw= factor07]
+xtable aÑo pobre [iw= factor07] , column
+
+
+	***** Área de Residencia *****
+**1.2. pobreza monetaria urbana hogar *********
+use "pobreza total", replace
+tab rural 
+tab rural, nolabel
+keep if rural  == 0     //URBANO
+tab aÑo pobre [iw= factor07]
+xtable aÑo pobre [iw= factor07] , column
+
+**1.3. pobreza monetaria rural hogar **********
+use "pobreza total", replace
+tab rural  
+tab rural  , nolabel
+keep if rural     == 1   //RURAL
+tab aÑo pobre [iw= factor07]
+xtable aÑo pobre [iw= factor07] , column
+
+
+	***** Región Natural *****
+***1.4. Pobreza región natural hogar**************
+**************************************************
+	****Pobreza hogar costa****************
+use "pobreza total", replace
+tab grandes_dominios
+tab grandes_dominios, nolabel
+keep if grandes_dominios     == 1   //COSTA
+tab pobre
+table aÑo pobre [iw= factor07]
+xtable aÑo pobre [iw= factor07] , column
+
+	****Pobreza hogar sierra****************
+use "pobreza total", replace
+tab grandes_dominios
+tab grandes_dominios, nolabel
+keep if grandes_dominios     == 2    //SIERRA
+tab pobre
+table aÑo pobre [iw= factor07]
+xtable aÑo pobre [iw= factor07] , column
+
+	****Pobreza hogar selva******************
+use "pobreza total", replace
+tab grandes_dominios
+tab grandes_dominios, nolabel
+keep if grandes_dominios     == 3    //SELVA
+tab pobre
+table aÑo pobre [iw= factor07]
+xtable aÑo pobre [iw= factor07] , column
+
+***1.5. Pobreza dominio geografico hogar******
+**********************************************
+	***Costa urbana***************************
+use "pobreza total", replace
+tab grandes_dominios
+tab grandes_dominios, nolabel
+keep if grandes_dominios     == 1     //COSTA
+//Una vez que llamamos a la costa, necesitamos la zona urbana 
+tab rural
+tab rural, nolabel
+keep if rural     == 0   //URBANO
+tab pobre
+table aÑo pobre [iw= factor07]
+xtable aÑo pobre [iw= factor07] , column
+
+	***Costa rural******************
+use "pobreza total", replace
+tab grandes_dominios
+tab grandes_dominios, nolabel
+keep if grandes_dominios     == 1    //COSTA
+//Una vez que llamamos a la costa, necesitamos la zona rural 
+tab rural
+tab rural, nolabel
+keep if rural     == 1   //RURAL
+tab pobre
+table aÑo pobre [iw= factor07]
+xtable aÑo pobre [iw= factor07] , column
+
+	***Sierra urbana*******************
+use "pobreza total", replace
+tab grandes_dominios
+tab grandes_dominios, nolabel
+keep if grandes_dominios     == 2   //SIERRA
+//Una vez que llamamos a la costa, necesitamos la zona urbana 
+tab rural
+tab rural, nolabel
+keep if rural     == 0    //URBANO
+tab pobre
+table aÑo pobre [iw= factor07]
+xtable aÑo pobre [iw= factor07] , column
+
+	*******Sierra rural******************
+use "pobreza total", replace
+tab grandes_dominios
+tab grandes_dominios, nolabel
+keep if grandes_dominios     == 2     //SIERRA
+//Una vez que llamamos a la costa, necesitamos la zona rural
+tab rural
+tab rural, nolabel
+keep if rural     == 1    //RURAL
+tab pobre
+table aÑo pobre [iw= factor07]
+xtable aÑo pobre [iw= factor07] , column
+
+	******Selva urbana***********************
+use "pobreza total", replace
+tab grandes_dominios
+tab grandes_dominios, nolabel
+keep if grandes_dominios     == 3    //SELVA
+//Una vez que llamamos a la costa, necesitamos la zona urbana 
+tab rural
+tab rural, nolabel
+keep if rural     == 0      //URBANO
+tab pobre
+table aÑo pobre [iw= factor07]
+xtable aÑo pobre [iw= factor07] , column
+
+	*******Selva rural******************
+use "pobreza total", replace
+tab grandes_dominios
+tab grandes_dominios, nolabel
+keep if grandes_dominios     == 3      //SELVA
+//Una vez que llamamos a la costa, necesitamos la zona rural
+tab rural
+tab rural, nolabel
+keep if rural     == 1     //RURAL
+tab pobre
+table aÑo pobre [iw= factor07]
+xtable aÑo pobre [iw= factor07] , column
+
+
+********METODOLOGÍA POBREZA MONETARIA ************
+**************************************************
+**III. POBREZA MONETARIA EXTREMA A NIVEL DE PERSONAS ****
+**************************************************
+use "pobreza total", replace
+
+	***** Ámbito geográfico nacional *****
+***3.1.Pobreza monetaria extrema por personas**********
+tab pobreza
+tab aÑo pobreza [iw= facpob]
+xtable aÑo pobreza [iw= facpob] , column
+
+
+	***** Área de Residencia *****
+**3.2. Pobreza monetaria extrema por personas urbano******
+use "pobreza total", replace
+tab rural  
+keep if rural     == 0    //URBANO
+tab aÑo pobreza [iw= facpob]  // Se usa pobreza y no"pobre"
+xtable aÑo pobreza [iw= facpob] , column
+
+***3.3. Pobreza monetaria extrema por personas rural*******
+use "pobreza total", replace
+tab rural  
+keep if rural     == 1    //RURAL
+tab aÑo pobreza [iw= facpob]
+xtable aÑo pobreza [iw= facpob] , column
+
+
+	***** Región Natural *****
+***3.4. Pobreza monetaria extrema por personas Región natural***
+**************************************************
+	****Pobreza monetaria extrema por persona -Costa****
+use "pobreza total", replace
+tab grandes_dominios
+tab grandes_dominios, nolabel
+keep if grandes_dominios     == 1   //COSTA
+tab pobre
+table aÑo pobreza [iw= facpob]
+xtable aÑo pobreza [iw= facpob] , column
+
+	****Pobreza monetaria extrema por persona -Sierra****
+use "pobreza total", replace
+tab grandes_dominios
+tab grandes_dominios, nolabel
+keep if grandes_dominios     == 2   //SIERRA
+tab pobre
+table aÑo pobreza [iw= facpob]
+xtable aÑo pobreza [iw= facpob] , column
+
+	****Pobreza monetaria extrema por persona -Selva*****
+use "pobreza total", replace
+tab grandes_dominios
+tab grandes_dominios, nolabel
+keep if grandes_dominios     == 3   //SELVA
+tab pobre
+table aÑo pobreza [iw= facpob]
+xtable aÑo pobreza [iw= facpob] , column
+
+
+
+	***** Dominio Geográfico *****
+***3.5. Pobreza extrema, dominio geográfico por personas**************
+**************************************************
+	****Pobreza monetaria extrema por persona Costa Urbana*****
+use "pobreza total", replace
+tab grandes_dominios
+tab grandes_dominios, nolabel
+keep if grandes_dominios     == 1     //COSTA
+tab rural
+tab rural, nolabel
+keep if rural     == 0   //URBANO
+tab pobre
+table aÑo pobreza [iw= facpob]
+xtable aÑo pobreza [iw= facpob] , column
+
+	****Pobreza monetaria extrema por persona Costa Rural*****
+use "pobreza total", replace
+tab grandes_dominios
+tab grandes_dominios, nolabel
+keep if grandes_dominios     == 1    //COSTA
+tab rural
+tab rural, nolabel
+keep if rural     == 1   //RURAL
+tab pobre
+table aÑo pobreza [iw= facpob]
+xtable aÑo pobreza [iw= facpob] , column
+
+	***Pobreza monetaria extrema por persona Sierra urbana******
+use "pobreza total", replace
+tab grandes_dominios
+tab grandes_dominios, nolabel
+keep if grandes_dominios     == 2   //SIERRA
+tab rural
+tab rural, nolabel
+keep if rural     == 0    //URBANO
+tab pobre
+table aÑo pobreza [iw= facpob]
+xtable aÑo pobreza [iw= facpob] , column
+
+	****Pobreza monetaria extrema por persona Sierra rural***
+use "pobreza total", replace
+tab grandes_dominios
+tab grandes_dominios, nolabel
+keep if grandes_dominios     == 2     //SIERRA
+tab rural
+tab rural, nolabel
+keep if rural     == 1    //RURAL
+tab pobre
+table aÑo pobreza [iw= facpob]
+xtable aÑo pobreza [iw= facpob] , column
+
+	****Pobreza monetaria extrema por persona Selva urbana****
+use "pobreza total", replace
+tab grandes_dominios
+tab grandes_dominios, nolabel
+keep if grandes_dominios     == 3    //SELVA
+tab rural
+tab rural, nolabel
+keep if rural     == 0      //URBANO
+tab pobre
+table aÑo pobreza [iw= facpob]
+xtable aÑo pobreza [iw= facpob] , column
+
+	****Pobreza monetaria extrema por persona Selva rural*****
+use "pobreza total", replace
+tab grandes_dominios
+tab grandes_dominios, nolabel
+keep if grandes_dominios     == 3      //SELVA
+tab rural
+tab rural, nolabel
+keep if rural     == 1     //RURAL
+tab pobre
+table aÑo pobreza [iw= facpob]
+xtable aÑo pobreza [iw= facpob] , column
+
+
+********METODOLOGÍA POBREZA MONETARIA ************
+**************************************************
+**IV. POBREZA MONETARIA A NIVEL DEPARTAMENTAL POR PERSONAS ***
+**************************************************
+use "pobreza total", replace
+
+	***** Ámbito geográfico nacional *****
+***4.1.Pobreza monetaria departamental por persona******
+tab pobreza
+table aÑo  dpto pobre [iw= facpob]    //Se usa pobre y no"pobreza" con facpob
+xtable aÑo  dpto pobre [iw= facpob] , column
+
+
+	***** Área de Residencia *****
+**4.2. Pobreza monetaria departamental por persona urbano****
+use "pobreza total", replace
+tab rural  
+keep if rural     == 0     //URBANO
+tab pobre
+table aÑo  dpto pobre [iw= facpob]
+xtable aÑo  dpto pobre [iw= facpob] , column
+
+***4.3. Pobreza monetaria departamental por persona rural***
+use "pobreza total", replace
+tab rural  
+keep if rural     == 1   //RURAL
+tab pobre
+table aÑo  dpto pobre [iw= facpob]
+xtable aÑo  dpto pobre [iw= facpob] , column
+
+
+	***** Región Natural *****
+**4.4. Pobreza monetaria departamental por persona Región natural**
+**************************************************
+	****Pobreza extrema por hogares -Costa****
+use "pobreza total", replace
+tab grandes_dominios
+tab grandes_dominios, nolabel
+keep if grandes_dominios     == 1   //COSTA
+tab pobre
+table aÑo  dpto pobre [iw= facpob]
+xtable aÑo  dpto pobre [iw= facpob] , column
+
+	**Pobreza monetaria departamental por persona -Sierra***
+use "pobreza total", replace
+tab grandes_dominios
+tab grandes_dominios, nolabel
+keep if grandes_dominios     == 2   //SIERRA
+tab pobre
+table aÑo  dpto pobre [iw= facpob]
+xtable aÑo  dpto pobre [iw= facpob] , column
+
+	**Pobreza monetaria departamental por persona -Selva***
+use "pobreza total", replace
+tab grandes_dominios
+tab grandes_dominios, nolabel
+keep if grandes_dominios     == 3   //SELVA
+tab pobre
+table aÑo  dpto pobre [iw= facpob]
+xtable aÑo  dpto pobre [iw= facpob] , column
+
+
+	***** Dominio Geográfico *****
+**4.5. Pobreza monetaria departamental por persona, dominio geográfico****
+**************************************************
+	****Pobreza monetaria departamental por persona Costa Urbana**********
+use "pobreza total", replace
+tab grandes_dominios
+tab grandes_dominios, nolabel
+keep if grandes_dominios     == 1     //COSTA
+tab rural
+tab rural, nolabel
+keep if rural     == 0   //URBANO
+tab pobre
+table aÑo  dpto pobre [iw= facpob]
+xtable aÑo  dpto pobre [iw= facpob] , column
+
+	**Pobreza monetaria departamental por persona Costa Rural***
+use "pobreza total", replace
+tab grandes_dominios
+tab grandes_dominios, nolabel
+keep if grandes_dominios     == 1    //COSTA
+tab rural
+tab rural, nolabel
+keep if rural     == 1   //RURAL
+tab pobre
+table aÑo  dpto pobre [iw= facpob]
+xtable aÑo  dpto pobre [iw= facpob] , column
+
+	**Pobreza monetaria departamental por persona Sierra urbana****
+use "pobreza total", replace
+tab grandes_dominios
+tab grandes_dominios, nolabel
+keep if grandes_dominios     == 2   //SIERRA
+tab rural
+tab rural, nolabel
+keep if rural     == 0    //URBANO
+tab pobre
+table aÑo  dpto pobre [iw= facpob]
+xtable aÑo  dpto pobre [iw= facpob] , column
+
+	***Pobreza monetaria departamental por persona Sierra rural***
+use "pobreza total", replace
+tab grandes_dominios
+tab grandes_dominios, nolabel
+keep if grandes_dominios     == 2     //SIERRA
+tab rural
+tab rural, nolabel
+keep if rural     == 1    //RURAL
+tab pobre
+table aÑo  dpto pobre [iw= facpob]
+xtable aÑo  dpto pobre [iw= facpob] , column
+
+	**Pobreza monetaria departamental por persona Selva urbana***
+use "pobreza total", replace
+tab grandes_dominios
+tab grandes_dominios, nolabel
+keep if grandes_dominios     == 3    //SELVA
+tab rural
+tab rural, nolabel
+keep if rural     == 0      //URBANO
+tab pobre
+table aÑo  dpto pobre [iw= facpob]
+xtable aÑo  dpto pobre [iw= facpob] , column
+
+	***Pobreza monetaria departamental por persona Selva rural***
+use "pobreza total", replace
+tab grandes_dominios
+tab grandes_dominios, nolabel
+keep if grandes_dominios     == 3      //SELVA
+tab rural
+tab rural, nolabel
+keep if rural     == 1     //RURAL
+tab pobre
+table aÑo  dpto pobre [iw= facpob]
+xtable aÑo  dpto pobre [iw= facpob] , column
+
+
+
+
+
+********METODOLOGÍA POBREZA MONETARIA ************
+**************************************************
+**V. POBREZA MONETARIA EXTREMA A NIVEL DEPARTAMENTAL POR PERSONAS**
+***************************************************************
+use "pobreza total", replace
+
+	***** Ámbito geográfico nacional *****
+**5.1.Pobreza monetaria extrema departamental por persona***
+tab pobreza
+table aÑo  dpto pobreza [iw= facpob]     // Se usa pobre y no"pobreza" con factor07
+xtable aÑo  dpto pobreza [iw= facpob] , column
+
+
+	***** Área de Residencia *****
+**5.2. Pobreza monetaria extrema departamental por persona urbano**
+use "pobreza total", replace
+tab rural  
+keep if rural     == 0     //URBANO
+tab pobre
+table aÑo  dpto pobreza [iw= facpob]
+xtable aÑo  dpto pobreza [iw= facpob] , column
+
+**5.3. Pobreza monetaria departamental rural***
+use "pobreza total", replace
+tab rural  
+keep if rural     == 1   //RURAL
+tab pobre
+table aÑo  dpto pobreza [iw= facpob]
+xtable aÑo  dpto pobreza [iw= facpob] , column
+
+
+	***** Región Natural *****
+**5.4. Pobreza monetaria extrema departamental por persona Región natural***
+**************************************************
+	**Pobreza monetaria extrema departamental por persona  -Costa**
+use "pobreza total", replace
+tab grandes_dominios
+tab grandes_dominios, nolabel
+keep if grandes_dominios     == 1   //COSTA
+tab pobre
+table aÑo  dpto pobreza [iw= facpob]
+xtable aÑo  dpto pobreza [iw= facpob] , column
+
+	**Pobreza monetaria extrema departamental por persona -Sierra***
+use "pobreza total", replace
+tab grandes_dominios
+tab grandes_dominios, nolabel
+keep if grandes_dominios     == 2   //SIERRA
+tab pobre
+table aÑo  dpto pobreza [iw= facpob]
+xtable aÑo  dpto pobreza [iw= facpob] , column
+
+	**Pobreza monetaria extrema departamental por persona -Selva**
+use "pobreza total", replace
+tab grandes_dominios
+tab grandes_dominios, nolabel
+keep if grandes_dominios     == 3   //SELVA
+tab pobre
+table aÑo  dpto pobreza [iw= facpob]
+xtable aÑo  dpto pobreza [iw= facpob] , column
+
+
+	***** Dominio Geográfico *****
+**5.5. Pobreza monetaria extrema departamental por persona, dominio geográfico*******
+**************************************************
+	**Pobreza monetaria extrema departamental por persona Costa Urbana*********
+use "pobreza total", replace
+tab grandes_dominios
+tab grandes_dominios, nolabel
+keep if grandes_dominios     == 1     //COSTA
+tab rural
+tab rural, nolabel
+keep if rural     == 0   //URBANO
+tab pobre
+table aÑo  dpto pobre [iw= factor07]
+xtable aÑo  dpto pobre [iw= factor07] , column
+
+	**Pobreza monetaria extrema departamental por persona Costa Rural************
+use "pobreza total", replace
+tab grandes_dominios
+tab grandes_dominios, nolabel
+keep if grandes_dominios     == 1    //COSTA
+tab rural
+tab rural, nolabel
+keep if rural     == 1   //RURAL
+tab pobre
+table aÑo  dpto pobre [iw= factor07]
+xtable aÑo  dpto pobre [iw= factor07] , column
+
+	**Pobreza monetaria extrema departamental por persona Sierra urbana************
+use "pobreza total", replace
+tab grandes_dominios
+tab grandes_dominios, nolabel
+keep if grandes_dominios     == 2   //SIERRA
+tab rural
+tab rural, nolabel
+keep if rural     == 0    //URBANO
+tab pobre
+table aÑo  dpto pobre [iw= factor07]
+xtable aÑo  dpto pobre [iw= factor07] , column
+
+	**Pobreza monetaria extrema departamental por persona Sierra rural***********
+use "pobreza total", replace
+tab grandes_dominios
+tab grandes_dominios, nolabel
+keep if grandes_dominios     == 2     //SIERRA
+tab rural
+tab rural, nolabel
+keep if rural     == 1    //RURAL
+tab pobre
+table aÑo  dpto pobre [iw= factor07]
+xtable aÑo  dpto pobre [iw= factor07] , column
+
+	**Pobreza monetaria extrema departamental por persona Selva urbana**********
+use "pobreza total", replace
+tab grandes_dominios
+tab grandes_dominios, nolabel
+keep if grandes_dominios     == 3    //SELVA
+tab rural
+tab rural, nolabel
+keep if rural     == 0      //URBANO
+tab pobre
+table aÑo  dpto pobre [iw= factor07]
+xtable aÑo  dpto pobre [iw= factor07] , column
+
+	**Pobreza monetaria extrema departamental por persona Selva rural**********
+use "pobreza total", replace
+tab grandes_dominios
+tab grandes_dominios, nolabel
+keep if grandes_dominios     == 3      //SELVA
+tab rural
+tab rural, nolabel
+keep if rural     == 1     //RURAL
+tab pobre
+table aÑo  dpto pobre [iw= factor07]
+xtable aÑo  dpto pobre [iw= factor07] , column
+
+
+
+********METODOLOGÍA POBREZA MONETARIA ************
+**************************************************
+**V. POBREZA MONETARIA EXTREMO A NIVEL DE HOGARES ****
+**************************************************
+use "pobreza total", replace
+
+	***** Ámbito geográfico nacional *****
+***5.1.Pobreza monetaria extremo por hogares*****
+tab pobreza
+tab aÑo pobreza [iw= factor07]
+xtable aÑo pobreza [iw= factor07] , column
+
+
+	***** Área de Residencia *****
+**5.2. Pobreza monetaria extremo por hogares urbano****
+use "pobreza total", replace
+tab rural  
+keep if rural     == 0      //URBANO
+tab aÑo pobreza [iw= factor07]    // Se usa pobreza y no"pobre"
+xtable aÑo pobreza [iw= factor07] , column
+
+***5.3. Pobreza monetaria extremo por hogares rural****
+use "pobreza total", replace
+tab rural  
+keep if rural     == 1    //RURAL
+tab aÑo pobreza [iw= factor07]
+xtable aÑo pobreza [iw= factor07] , column
+
+
+	***** Región Natural *****
+***5.4. Pobreza monetaria extrema por hogares Región natural******
+**************************************************
+	****Pobreza extremo por hogares -Costa****
+use "pobreza total", replace
+tab grandes_dominios
+tab grandes_dominios, nolabel
+keep if grandes_dominios     == 1   //COSTA
+tab pobre
+tab aÑo pobreza [iw= factor07]
+xtable aÑo pobreza [iw= factor07] , column
+
+	**Pobreza monetaria extrema por hogares -Sierra****
+use "pobreza total", replace
+tab grandes_dominios
+tab grandes_dominios, nolabel
+keep if grandes_dominios     == 2   //SIERRA
+tab pobre
+tab aÑo pobreza [iw= factor07]
+xtable aÑo pobreza [iw= factor07] , column
+
+	**Pobreza monetaria extrema por hogares -Selva****
+use "pobreza total", replace
+tab grandes_dominios
+tab grandes_dominios, nolabel
+keep if grandes_dominios     == 3   //SELVA
+tab pobre
+tab aÑo pobreza [iw= factor07]
+xtable aÑo pobreza [iw= factor07] , column
+
+
+	**** Dominio Geográfico *****
+***5.5. Pobreza monetaria extrema, dominio geográfico****
+**************************************************
+	**Pobreza monetaria extrema por hogares Costa Urbana***
+use "pobreza total", replace
+tab grandes_dominios
+tab grandes_dominios, nolabel
+keep if grandes_dominios     == 1     //COSTA
+tab rural
+tab rural, nolabel
+keep if rural     == 0   //URBANO
+tab pobre
+tab aÑo pobreza [iw= factor07]
+xtable aÑo pobreza [iw= factor07] , column
+
+	**Pobreza monetaria extrema por hogares Costa Rural***
+use "pobreza total", replace
+tab grandes_dominios
+tab grandes_dominios, nolabel
+keep if grandes_dominios     == 1    //COSTA
+tab rural
+tab rural, nolabel
+keep if rural     == 1   //RURAL
+tab pobre
+tab aÑo pobreza [iw= factor07]
+xtable aÑo pobreza [iw= factor07] , column
+
+	**Pobreza monetaria extrema por hogares Sierra urbana***
+use "pobreza total", replace
+tab grandes_dominios
+tab grandes_dominios, nolabel
+keep if grandes_dominios     == 2   //SIERRA
+tab rural
+tab rural, nolabel
+keep if rural     == 0    //URBANO
+tab pobre
+tab aÑo pobreza [iw= factor07]
+xtable aÑo pobreza [iw= factor07] , column
+
+	**Pobreza monetaria extrema por hogares Sierra rural***
+use "pobreza total", replace
+tab grandes_dominios
+tab grandes_dominios, nolabel
+keep if grandes_dominios     == 2     //SIERRA
+tab rural
+tab rural, nolabel
+keep if rural     == 1    //RURAL
+tab pobre
+tab aÑo pobreza [iw= factor07]
+xtable aÑo pobreza [iw= factor07] , column
+
+	****Pobreza monetaria extrema por hogares Selva urbana***
+use "pobreza total", replace
+tab grandes_dominios
+tab grandes_dominios, nolabel
+keep if grandes_dominios     == 3    //SELVA
+tab rural
+tab rural, nolabel
+keep if rural     == 0      //URBANO
+tab pobre
+tab aÑo pobreza [iw= factor07]
+xtable aÑo pobreza [iw= factor07] , column
+
+	***Pobreza monetaria extrema por hogares Selva rural****
+use "pobreza total", replace
+tab grandes_dominios
+tab grandes_dominios, nolabel
+keep if grandes_dominios     == 3      //SELVA
+tab rural
+tab rural, nolabel
+keep if rural     == 1     //RURAL
+tab pobre
+tab aÑo pobreza [iw= factor07]
+xtable aÑo pobreza [iw= factor07] , column
+
+
+********METODOLOGÍA POBREZA MONETARIA ************
+**************************************************
+**VI. POBREZA MONETARIA A NIVEL DEPARTAMENTAL ****
+**************************************************
+use "pobreza total", replace
+
+	***** Ámbito geográfico nacional *****
+***6.1.Pobreza monetaria departamental****
+tab pobreza
+table aÑo  dpto pobre [iw= factor07]     // Se usa pobre y no"pobreza" con factor07
+xtable aÑo  dpto pobre [iw= factor07] , column
+
+
+	***** Área de Residencia *****
+**6.2. Pobreza monetaria departamental urbano****
+use "pobreza total", replace
+tab rural  
+keep if rural     == 0     //URBANO
+tab pobre
+table aÑo  dpto pobre [iw= factor07]
+xtable aÑo  dpto pobre [iw= factor07] , column
+
+***6.3. Pobreza monetaria departamental rural****
+use "pobreza total", replace
+tab rural  
+keep if rural     == 1   //RURAL
+tab pobre
+table aÑo  dpto pobre [iw= factor07]
+xtable aÑo  dpto pobre [iw= factor07] , column
+
+
+	***** Región Natural *****
+***6.4. Pobreza monetaria departamental Región natural**
+**************************************************
+	**Pobreza monetaria departamental -Costa****
+use "pobreza total", replace
+tab grandes_dominios
+tab grandes_dominios, nolabel
+keep if grandes_dominios     == 1   //COSTA
+tab pobre
+table aÑo  dpto pobre [iw= factor07]
+xtable aÑo  dpto pobre [iw= factor07] , column
+
+	**Pobreza monetaria departamental -Sierra**
+use "pobreza total", replace
+tab grandes_dominios
+tab grandes_dominios, nolabel
+keep if grandes_dominios     == 2   //SIERRA
+tab pobre
+table aÑo  dpto pobre [iw= factor07]
+xtable aÑo  dpto pobre [iw= factor07] , column
+
+	**Pobreza monetaria departamental -Selva**
+use "pobreza total", replace
+tab grandes_dominios
+tab grandes_dominios, nolabel
+keep if grandes_dominios     == 3   //SELVA
+tab pobre
+table aÑo  dpto pobre [iw= factor07]
+xtable aÑo  dpto pobre [iw= factor07] , column
+
+
+	*** Dominio Geográfico ***
+**6.5. Pobreza monetaria departamental, dominio geográfico**
+**************************************************
+	****Pobreza monetaria departamental Costa Urbana**
+use "pobreza total", replace
+tab grandes_dominios
+tab grandes_dominios, nolabel
+keep if grandes_dominios     == 1     //COSTA
+tab rural
+tab rural, nolabel
+keep if rural     == 0   //URBANO
+tab pobre
+table aÑo  dpto pobre [iw= factor07]
+xtable aÑo  dpto pobre [iw= factor07] , column
+
+	**Pobreza monetaria departamental Costa Rural***
+use "pobreza total", replace
+tab grandes_dominios
+tab grandes_dominios, nolabel
+keep if grandes_dominios     == 1    //COSTA
+tab rural
+tab rural, nolabel
+keep if rural     == 1   //RURAL
+tab pobre
+table aÑo  dpto pobre [iw= factor07]
+xtable aÑo  dpto pobre [iw= factor07] , column
+
+	**Pobreza monetaria departamental Sierra urbana****
+use "pobreza total", replace
+tab grandes_dominios
+tab grandes_dominios, nolabel
+keep if grandes_dominios     == 2   //SIERRA
+tab rural
+tab rural, nolabel
+keep if rural     == 0    //URBANO
+tab pobre
+table aÑo  dpto pobre [iw= factor07]
+xtable aÑo  dpto pobre [iw= factor07] , column
+
+	**Pobreza monetaria departamental Sierra rural***
+use "pobreza total", replace
+tab grandes_dominios
+tab grandes_dominios, nolabel
+keep if grandes_dominios     == 2     //SIERRA
+tab rural
+tab rural, nolabel
+keep if rural     == 1    //RURAL
+tab pobre
+table aÑo  dpto pobre [iw= factor07]
+xtable aÑo  dpto pobre [iw= factor07] , column
+
+	**Pobreza monetaria departamental Selva urbana****
+use "pobreza total", replace
+tab grandes_dominios
+tab grandes_dominios, nolabel
+keep if grandes_dominios     == 3    //SELVA
+tab rural
+tab rural, nolabel
+keep if rural     == 0      //URBANO
+tab pobre
+table aÑo  dpto pobre [iw= factor07]
+xtable aÑo  dpto pobre [iw= factor07] , column
+
+	**Pobreza monetaria departamental Selva rural***
+use "pobreza total", replace
+tab grandes_dominios
+tab grandes_dominios, nolabel
+keep if grandes_dominios     == 3      //SELVA
+tab rural
+tab rural, nolabel
+keep if rural     == 1     //RURAL
+tab pobre
+table aÑo  dpto pobre [iw= factor07]
+xtable aÑo  dpto pobre [iw= factor07] , column
+
+
+********METODOLOGÍA POBREZA MONETARIA ************
+**************************************************
+**VII. POBREZA MONETARIA EXTREMA A NIVEL DEPARTAMENTAL ***
+**************************************************
+use "pobreza total", replace
+
+	***** Ámbito geográfico nacional *****
+***7.1.Pobreza monetaria extrema departamental*****
+tab pobreza
+table aÑo  dpto pobreza [iw= factor07]   // Se usa pobre y no"pobreza"
+xtable aÑo  dpto pobreza [iw= factor07] , column
+
+	***** Área de Residencia *****
+**7.2. Pobreza monetaria extrema departamental urbano******
+use "pobreza total", replace
+tab rural  
+keep if rural     == 0     //URBANO
+tab pobre
+table aÑo  dpto pobreza [iw= factor07]
+xtable aÑo  dpto pobreza [iw= factor07] , column
+
+***7.3. Pobreza monetaria extrema departamental rural****
+use "pobreza total", replace
+tab rural  
+keep if rural     == 1   //RURAL
+tab pobre
+table aÑo  dpto pobreza [iw= factor07]
+xtable aÑo  dpto pobreza [iw= factor07] , column
+
+	***** Región Natural *****
+***7.4. Pobreza monetaria extrema departamental Región natural******
+**************************************************
+	**Pobreza extrema departamental -Costa****
+use "pobreza total", replace
+tab grandes_dominios
+tab grandes_dominios, nolabel
+keep if grandes_dominios     == 1   //COSTA
+tab pobre
+table aÑo  dpto pobreza [iw= factor07]
+xtable aÑo  dpto pobreza [iw= factor07] , column
+
+	**Pobreza monetaria extrema departamental -Sierra****
+use "pobreza total", replace
+tab grandes_dominios
+tab grandes_dominios, nolabel
+keep if grandes_dominios     == 2   //SIERRA
+tab pobre
+table aÑo  dpto pobreza [iw= factor07]
+xtable aÑo  dpto pobreza [iw= factor07] , column
+
+	**Pobreza monetaria extrema departamental -Selva***
+use "pobreza total", replace
+tab grandes_dominios
+tab grandes_dominios, nolabel
+keep if grandes_dominios     == 3   //SELVA
+tab pobre
+table aÑo  dpto pobreza [iw= factor07]
+xtable aÑo  dpto pobreza [iw= factor07] , column
+
+
+	***** Dominio Geográfico *****
+***7.5. Pobreza monetaria extrema departamental, dominio geográfico********
+**************************************************
+	**Pobreza monetaria extrema departamental Costa Urbana***
+use "pobreza total", replace
+tab grandes_dominios
+tab grandes_dominios, nolabel
+keep if grandes_dominios     == 1     //COSTA
+tab rural
+tab rural, nolabel
+keep if rural     == 0   //URBANO
+tab pobre
+table aÑo  dpto pobreza [iw= factor07]
+xtable aÑo  dpto pobreza [iw= factor07] , column
+
+	**Pobreza monetaria extrema departamental Costa Rural**
+use "pobreza total", replace
+tab grandes_dominios
+tab grandes_dominios, nolabel
+keep if grandes_dominios     == 1    //COSTA
+tab rural
+tab rural, nolabel
+keep if rural     == 1   //RURAL
+tab pobre
+table aÑo  dpto pobreza [iw= factor07]
+xtable aÑo  dpto pobreza [iw= factor07] , column
+
+	**Pobreza monetaria extrema departamental Sierra urbana**
+use "pobreza total", replace
+tab grandes_dominios
+tab grandes_dominios, nolabel
+keep if grandes_dominios     == 2   //SIERRA
+tab rural
+tab rural, nolabel
+keep if rural     == 0    //URBANO
+tab pobre
+table aÑo  dpto pobreza [iw= factor07]
+xtable aÑo  dpto pobreza [iw= factor07] , column
+
+	**Pobreza monetaria extrema departamental Sierra rural**
+use "pobreza total", replace
+tab grandes_dominios
+tab grandes_dominios, nolabel
+keep if grandes_dominios     == 2     //SIERRA
+tab rural
+tab rural, nolabel
+keep if rural     == 1    //RURAL
+tab pobre
+table aÑo  dpto pobreza [iw= factor07]
+xtable aÑo  dpto pobreza [iw= factor07] , column
+
+	**Pobreza monetaria extrema departamental Selva urbana**
+use "pobreza total", replace
+tab grandes_dominios
+tab grandes_dominios, nolabel
+keep if grandes_dominios     == 3    //SELVA
+tab rural
+tab rural, nolabel
+keep if rural     == 0      //URBANO
+tab pobre
+table aÑo  dpto pobreza [iw= factor07]
+xtable aÑo  dpto pobreza [iw= factor07] , column
+
+	**Pobreza monetaria extrema departamental Selva rural***
+use "pobreza total", replace
+tab grandes_dominios
+tab grandes_dominios, nolabel
+keep if grandes_dominios     == 3      //SELVA
+tab rural
+tab rural, nolabel
+keep if rural     == 1     //RURAL
+tab pobre
+table aÑo  dpto pobreza [iw= factor07]
+xtable aÑo  dpto pobreza [iw= factor07] , column
+
+*---------------------------FIN------------------------------------*
+
