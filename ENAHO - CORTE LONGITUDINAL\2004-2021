@@ -6,7 +6,7 @@ cd "D:\ENAHO\CORTE TRANSVERSAL\2004-2021"
 Limpia nombres y equiquetas "a�o" */
 clear all
 set more off
-cd "D:\ENAHO\CORTE TRANSVERSAL\2004-2021"
+cd "D:\ENAHO\CORTE LONGITUDINAL\2004-2021"
 *Traslate a unicode
 unicode analyze *
 unicode encoding set ISO-8859-1 //código latino
